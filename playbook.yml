@@ -1,0 +1,77 @@
+---
+
+- hosts: all
+  become: yes
+  #become_user: vagrant
+
+  vars:
+    apt_packages:
+      - ansible
+      - ansible-lint
+      - tree
+      - python-pip
+      - libssl-dev
+      - zsh
+    pip_packages:
+      - molecule
+    dotfiles:
+      - .aliases
+      - .vimrc
+      - .zshrc
+
+  tasks:
+    - name: install apt packages
+      apt:
+        name: "{{ item }}"
+        state: latest
+        update_cache: yes
+      loop: "{{ apt_packages }}"
+
+    - name: install pip packages
+      pip:
+        name: "{{ item }}"
+      loop: "{{ pip_packages }}"
+
+    - name: set zsh to default shell
+      user:
+        name: vagrant
+        shell: /bin/zsh
+
+    - name: generate random string
+      set_fact:
+        random_string: "{{ lookup('password', '/tmp/passwordfile chars=ascii_letters') }}"
+
+    - name: clone oh-my-zsh
+      git:
+        repo: https://github.com/robbyrussell/oh-my-zsh
+        dest: "/home/vagrant/.oh-my-zsh"
+
+    - name: clone dot files to tmp dir
+      git:
+        repo: https://github.com/jonathaneliasson/dotfiles
+        dest: "/tmp/{{ random_string }}"
+
+    - name: copy dot files to vagrant home dir
+      copy:
+        src: "/tmp/{{ random_string }}/{{ item }}"
+        dest: "/home/vagrant/"
+        remote_src: yes
+        owner: vagrant
+        group: vagrant
+      loop: "{{ dotfiles }}"
+
+    - name: source dot files to vagrant home dir
+      shell: "source /home/vagrant/{{ item }}"
+      register: output
+      args:
+        executable: /bin/zsh
+      loop: "{{ dotfiles }}"
+      ignore_errors: yes
+
+    - debug:
+        var: output
+
+    - name:
+        file:
+          path: "/tmp/{{ random_string }}"
+          state: absent
