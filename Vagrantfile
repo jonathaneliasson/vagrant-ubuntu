@@ -6,6 +6,11 @@ Vagrant.configure(2) do |config|
 
   config.vm.box = "ubuntu/bionic64"
 
+  config.vm.synced_folder "/Users/jonathan.eliasson/internetstiftelsen/", "/home/vagrant/internetstiftelsen/"
+  config.vm.synced_folder "/Users/jonathan.eliasson/ansible/", "/home/vagrant/ansible/"
+  config.vm.synced_folder "/Users/jonathan.eliasson/docker/", "/home/vagrant/docker/"
+  config.vm.synced_folder "/Users/jonathan.eliasson/github/", "/home/vagrant/github/"
+
   config.vm.provision "ansible" do |ansible|
     ansible.verbose = "v"
     ansible.playbook = "playbook.yml"

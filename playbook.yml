@@ -2,7 +2,6 @@
 
 - hosts: all
   become: yes
-  #become_user: vagrant
 
   vars:
     apt_packages:
@@ -10,13 +9,13 @@
       - ansible-lint
       - tree
       - python-pip
+      - python3-pip
       - libssl-dev
       - zsh
     pip_packages:
       - molecule
     dotfiles:
       - .aliases
-      - .vimrc
       - .zshrc
 
   tasks:
@@ -62,16 +61,13 @@
 
     - name: source dot files to vagrant home dir
       shell: "source /home/vagrant/{{ item }}"
-      register: output
       args:
         executable: /bin/zsh
       loop: "{{ dotfiles }}"
       ignore_errors: yes
+      become: no
 
-    - debug:
-        var: output
-
-    - name:
-        file:
-          path: "/tmp/{{ random_string }}"
-          state: absent
+    - name: remove tmp dir
+      file:
+        path: "/tmp/{{ random_string }}"
+        state: absent
