@@ -1,73 +1,105 @@
 ---
 
 - hosts: all
-  become: yes
 
   vars:
+
     apt_packages:
       - ansible
       - ansible-lint
+      - fzf
       - tree
-      - python-pip
       - python3-pip
       - libssl-dev
+      - whois
       - zsh
+
     pip_packages:
       - molecule
+
     dotfiles:
       - .aliases
+      - .gitignore_global
+      - .vimrc
       - .zshrc
 
   tasks:
+
     - name: install apt packages
+      become: true
       apt:
         name: "{{ item }}"
-        state: latest
-        update_cache: yes
+        state: present
+        update_cache: true
       loop: "{{ apt_packages }}"
+
+    - name: install updates
+      become: true
+      apt:
+        update_cache: true
+        upgrade: dist
+
+    - name: remove dependencies that are no longer required
+      become: true
+      apt:
+        autoremove: true
 
     - name: install pip packages
       pip:
         name: "{{ item }}"
       loop: "{{ pip_packages }}"
 
-    - name: set zsh to default shell
+    - name: set zsh to default shell for vagrant user
+      become: true
       user:
         name: vagrant
         shell: /bin/zsh
 
     - name: generate random string
       set_fact:
-        random_string: "{{ lookup('password', '/tmp/passwordfile chars=ascii_letters') }}"
+        random_string: "{{ lookup('password', '/dev/null chars=ascii_letters') }}"
 
     - name: clone oh-my-zsh
       git:
         repo: https://github.com/robbyrussell/oh-my-zsh
+        version: master
         dest: "/home/vagrant/.oh-my-zsh"
 
     - name: clone dot files to tmp dir
       git:
         repo: https://github.com/jonathaneliasson/dotfiles
+        version: master
         dest: "/tmp/{{ random_string }}"
 
     - name: copy dot files to vagrant home dir
       copy:
         src: "/tmp/{{ random_string }}/{{ item }}"
         dest: "/home/vagrant/"
-        remote_src: yes
+        remote_src: true
         owner: vagrant
         group: vagrant
+        mode: 0644
       loop: "{{ dotfiles }}"
 
     - name: source dot files to vagrant home dir
       shell: "source /home/vagrant/{{ item }}"
       args:
         executable: /bin/zsh
-      loop: "{{ dotfiles }}"
-      ignore_errors: yes
-      become: no
+      loop:
+        - .aliases
+      changed_when: false
 
     - name: remove tmp dir
       file:
         path: "/tmp/{{ random_string }}"
         state: absent
+
+    - name: check if reboot is needed
+      stat:
+        path: /var/run/reboot-required
+      register: _result
+
+    - name: reboot host
+      become: true
+      reboot:
+      when: _result.stat.exists
